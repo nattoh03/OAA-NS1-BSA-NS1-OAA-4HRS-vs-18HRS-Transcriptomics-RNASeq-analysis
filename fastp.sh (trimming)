@@ -1,0 +1,185 @@
+#!/bin/bash
+#SBATCH --job-name=fastp_trim2
+#SBATCH --output=logs/fastp2_%j.out
+#SBATCH --error=logs/fastp2_%j.err
+#SBATCH --time=06:00:00
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16G
+#SBATCH --partition=day
+
+# Load modules if required by your HPC environment (uncomment/adjust if needed)
+# module load fastp
+module load fastp/0.23.2-GCCcore-10.2.0
+
+# Define directories relative to your working directory
+BASE_DIR="$HOME/palmer_scratch/RNASeq"
+RAW_DIR="${BASE_DIR}/raw_data"
+TRIM_DIR="${BASE_DIR}/trimmed_data2"
+REPORT_DIR="${BASE_DIR}/fastp_reports2"
+
+# Create output directories if they don't exist
+mkdir -p "${TRIM_DIR}"
+mkdir -p "${REPORT_DIR}"
+mkdir -p "${BASE_DIR}/logs2"
+
+echo "Starting fastp trimming job at $(date)"
+echo "--------------------------------------------------"
+
+# Loop through each sample folder in raw_data
+# Loop through each R1 file directly in raw_data
+for r1_file in "${RAW_DIR}"/*_R1_001.fastq.gz; do
+    if [ -f "$r1_file" ]; then
+        # Derive the corresponding R2 filename
+        r2_file="${r1_file/_R1_001.fastq.gz/_R2_001.fastq.gz}"
+        
+        # Extract the sample prefix (e.g., Sample_10_S10_L004)
+        r1_name=$(basename "$r1_file")
+        prefix="${r1_name%_R1_001.fastq.gz}"
+        
+        if [ -f "$r2_file" ]; then
+            echo "Processing sample: $prefix"
+            
+            fastp \
+                -i "$r1_file" \
+                -I "$r2_file" \
+                -o "${TRIM_DIR}/${prefix}_R1_val_1.fastq.gz" \
+                -O "${TRIM_DIR}/${prefix}_R2_val_2.fastq.gz" \
+                --detect_adapter_for_pe \
+                --qualified_quality_phred 20 \
+                --length_required 50 \
+                --thread 8 \
+                -h "${REPORT_DIR}/${prefix}_fastp.html" \
+                -j "${REPORT_DIR}/${prefix}_fastp.json"
+        else
+            echo "Warning: Corresponding R2 file not found for $r1_file"
+        fi
+    fi
+done
+
+echo "--------------------------------------------------"
+echo "Trimming completed successfully at $(date)"
+echo "--------------------------------------------------"
+
+
+
+
+
+
+
+#!/bin/bash
+#SBATCH --job-name=fastqc_Trimmedreads
+#SBATCH --output=fastqc_trim_%j.out
+#SBATCH --error=fastqc_trim_%j.err
+#SBATCH --time=02:00:00
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=16G
+#SBATCH --partition=day
+
+# Load required modules (adjust module names if your cluster uses specific versions)
+module load FastQC/0.12.1-Java-11
+
+module load MultiQC/1.10.1-foss-2020b-Python-3.8.6
+
+# Set paths
+RAW_DIR="/home/gi64/palmer_scratch/RNASeq/trimmed_data2"
+
+OUT_DIR="/home/gi64/palmer_scratch/RNASeq/trimmed_data2/fastqc_trimmed"
+
+# Create output directory if it doesn't exist
+mkdir -p "$OUT_DIR"
+
+echo "Starting FastQC on trimmed reads at $(date)"
+
+# Find all compressed FASTQ files and run FastQC in parallel safely
+find "$RAW_DIR" -maxdepth 1 -type f \( -name "*.fastq.gz" -o -name "*.fq.gz" \) | xargs -n 1 -P ${SLURM_CPUS_PER_TASK:-4} fastqc -o "$OUT_DIR"
+
+echo "FastQC completed at $(date)"
+
+# Run MultiQC to generate an aggregated HTML report
+echo "Running MultiQC..."
+multiqc "$OUT_DIR" -o "$OUT_DIR"
+
+echo "Pipeline finished successfully at $(date)"
+
+
+
+
+
+
+
+
+
+trimmed_data2/fastqc_trimmed/multiqc_data_1$ 
+Sample  FastQC_mqc-generalstats-fastqc-percent_duplicates       FastQC_mqc-generalstats-fastqc-percent_gc       FastQC_mqc-generalstats-fastqc-avg_sequence_length      FastQC_mqc-generalstats-fastqc-percent_fails    FastQC_mqc-generalstats-fastqc-total_sequences
+Sample_10_S10_L004_R1_val_1     88.21422180357433       49.0    123.50575325619688      27.27272727272727       20921109.0
+Sample_10_S10_L004_R2_val_2     87.76996080278252       50.0    123.5241182482248       27.27272727272727       20921109.0
+Sample_11_S11_L004_R1_val_1     88.66586222581785       50.0    119.71745996538675      27.27272727272727       24435730.0
+Sample_11_S11_L004_R2_val_2     88.55700096154831       50.0    119.74037636690207      36.36363636363637       24435730.0
+Sample_12_S12_L004_R1_val_1     91.54272885853607       54.0    110.52388975966001      36.36363636363637       23280770.0
+Sample_12_S12_L004_R2_val_2     91.90609435407137       55.0    110.55455115960511      36.36363636363637       23280770.0
+Sample_13_S13_L004_R1_val_1     84.86163891371089       49.0    120.34800202406896      27.27272727272727       22722546.0
+Sample_13_S13_L004_R2_val_2     84.41446711175165       49.0    120.36826397006745      27.27272727272727       22722546.0
+Sample_14_S14_L004_R1_val_1     82.12256859554601       48.0    126.49244669409272      27.27272727272727       19181270.0
+Sample_14_S14_L004_R2_val_2     81.5342912143965        48.0    126.50733100571547      27.27272727272727       19181270.0
+Sample_15_S15_L004_R1_val_1     81.75055452775655       47.0    128.59003944969075      27.27272727272727       19431838.0
+Sample_15_S15_L004_R2_val_2     81.11708237731648       48.0    128.60413065403284      27.27272727272727       19431838.0
+Sample_16_S16_L004_R1_val_1     83.60744636257948       48.0    131.49370617087297      27.27272727272727       15963414.0
+Sample_16_S16_L004_R2_val_2     83.09738319702393       49.0    131.5069624830879       27.27272727272727       15963414.0
+Sample_17_S17_L004_R1_val_1     72.57103329905276       46.0    123.91904629231335      27.27272727272727       10624010.0
+Sample_17_S17_L004_R2_val_2     72.37703226404295       47.0    123.94299280591791      27.27272727272727       10624010.0
+Sample_18_S18_L004_R1_val_1     80.85526142881153       48.0    123.97565427236094      27.27272727272727       9832526.0
+Sample_18_S18_L004_R2_val_2     80.56868636216004       50.0    123.99986788745842      27.27272727272727       9832526.0
+Sample_19_S19_L004_R1_val_1     80.62742692256924       47.0    127.84742707723012      27.27272727272727       9660220.0
+Sample_19_S19_L004_R2_val_2     79.93824959274828       48.0    127.86441499261922      27.27272727272727       9660220.0
+Sample_1_S1_L004_R1_val_1       89.17729737889364       50.0    122.56882629346413      27.27272727272727       20320548.0
+Sample_1_S1_L004_R2_val_2       88.94633256971365       51.0    122.59166760660194      36.36363636363637       20320548.0
+Sample_20_S20_L004_R1_val_1     73.16364681175274       47.0    124.40435203993253      27.27272727272727       9935157.0
+Sample_20_S20_L004_R2_val_2     73.00728290320549       48.0    124.42603262333952      27.27272727272727       9935157.0
+Sample_21_S21_L004_R1_val_1     77.85772450731054       48.0    130.67308656910882      27.27272727272727       8461032.0
+Sample_21_S21_L004_R2_val_2     77.10190166008825       48.0    130.6890680711289       27.27272727272727       8461032.0
+Sample_22_S22_L004_R1_val_1     78.63254970102543       49.0    125.80476285448766      18.181818181818183      9426280.0
+Sample_22_S22_L004_R2_val_2     78.07319453584168       50.0    125.82741187403727      27.27272727272727       9426280.0
+Sample_23_S23_L004_R1_val_1     79.9961226237835        50.0    116.30150369797 27.27272727272727       11664643.0
+Sample_23_S23_L004_R2_val_2     79.86837838116979       51.0    116.33328023840936      27.27272727272727       11664643.0
+Sample_24_S24_L004_R1_val_1     85.15861117969024       52.0    106.58516991653477      36.36363636363637       12005718.0
+Sample_24_S24_L004_R2_val_2     84.90102336278359       53.0    106.62732024856822      36.36363636363637       12005718.0
+Sample_25_S25_L004_R1_val_1     76.03806948388088       48.0    127.72420193242138      27.27272727272727       9086010.0
+Sample_25_S25_L004_R2_val_2     75.66180225161278       48.0    127.7423092204389       27.27272727272727       9086010.0
+Sample_26_S26_L004_R1_val_1     78.19920720840115       48.0    134.48712727534775      27.27272727272727       8270549.0
+Sample_26_S26_L004_R2_val_2     77.44294765890034       48.0    134.50009533829012      27.27272727272727       8270549.0
+Sample_27_S27_L004_R1_val_1     63.86923419642331       45.0    129.71996227062738      18.181818181818183      10645287.0
+Sample_27_S27_L004_R2_val_2     63.61735477671356       45.0    129.73764840722473      27.27272727272727       10645287.0
+Sample_28_S28_L004_R1_val_1     86.85246996332363       47.0    122.57462813184836      27.27272727272727       8870281.0
+Sample_28_S28_L004_R2_val_2     86.15614610118523       47.0    122.5928287953899       27.27272727272727       8870281.0
+Sample_29_S29_L004_R1_val_1     84.51246828583685       47.0    131.21744070299624      27.27272727272727       9506509.0
+Sample_29_S29_L004_R2_val_2     83.76537429229657       48.0    131.23268478470908      27.27272727272727       9506509.0
+Sample_2_S2_L004_R1_val_1       90.431435926168 49.0    130.03234122848858      27.27272727272727       19033909.0
+Sample_2_S2_L004_R2_val_2       89.72906311079139       49.0    130.04748651472485      27.27272727272727       19033909.0
+Sample_30_S30_L004_R1_val_1     86.48615830885188       48.0    132.4673851224066       27.27272727272727       9076226.0
+Sample_30_S30_L004_R2_val_2     85.67482059986891       49.0    132.48131359884604      27.27272727272727       9076226.0
+Sample_31_S31_L004_R1_val_1     87.28322714851376       48.0    129.82017865309106      27.27272727272727       9927620.0
+Sample_31_S31_L004_R2_val_2     86.63375414508101       48.0    129.83775436610185      27.27272727272727       9927620.0
+Sample_32_S32_L004_R1_val_1     92.82033465650528       48.0    127.60180003346267      18.181818181818183      9754152.0
+Sample_32_S32_L004_R2_val_2     92.12839471451215       49.0    127.6196935417861       27.27272727272727       9754152.0
+Sample_3_S3_L004_R1_val_1       89.64739217937176       49.0    123.91097397738395      27.27272727272727       20831572.0
+Sample_3_S3_L004_R2_val_2       89.098594475889 49.0    123.92795128471342      27.27272727272727       20831572.0
+Sample_4_S4_L004_R1_val_1       90.08008277600558       51.0    121.13073558488617      27.27272727272727       20940955.0
+Sample_4_S4_L004_R2_val_2       90.0788038681039        52.0    121.15450250478071      36.36363636363637       20940955.0
+Sample_5_S5_L004_R1_val_1       88.62762457665187       49.0    128.91376528724598      18.181818181818183      17957780.0
+Sample_5_S5_L004_R2_val_2       87.95067832921627       50.0    128.93242466496415      36.36363636363637       17957780.0
+Sample_6_S6_L004_R1_val_1       92.44361392331072       51.0    119.19112970980544      27.27272727272727       24118061.0
+Sample_6_S6_L004_R2_val_2       92.00502790729084       52.0    119.21725676869298      36.36363636363637       24118061.0
+Sample_7_S7_L004_R1_val_1       87.85005145478682       49.0    128.05749945223923      27.27272727272727       18603012.0
+Sample_7_S7_L004_R2_val_2       87.29575218251944       49.0    128.0730684364446       27.27272727272727       18603012.0
+Sample_8_S8_L004_R1_val_1       87.32321022986362       49.0    128.51849226998146      27.27272727272727       16870076.0
+Sample_8_S8_L004_R2_val_2       86.87278648542828       50.0    128.5353724547536       27.27272727272727       16870076.0
+Sample_9_S9_L004_R1_val_1       88.89544644291696       49.0    125.66371719550904      27.27272727272727       20212324.0
+Sample_9_S9_L004_R2_val_2       88.47461201051001       50.0    125.6815123782896       27.27272727272727       20212324.0
+
+
+
+
+
+
+
