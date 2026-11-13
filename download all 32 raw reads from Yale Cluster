@@ -1,3 +1,4 @@
+raw_download.sh
 #!/bin/bash
 #SBATCH --job-name=downloadreads
 #SBATCH --output=reads_%j.out
