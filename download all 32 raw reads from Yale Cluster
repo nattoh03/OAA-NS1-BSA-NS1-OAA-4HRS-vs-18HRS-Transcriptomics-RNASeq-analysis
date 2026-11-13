@@ -1,0 +1,36 @@
+#!/bin/bash
+#SBATCH --job-name=downloadreads
+#SBATCH --output=reads_%j.out
+#SBATCH --error=reads_%j.err
+#SBATCH --time=6:00:00
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=12
+#SBATCH --mem=64G
+#SBATCH --partition=day
+
+# Exit immediately if a command exits with a non-zero status
+set -e
+
+# Define destination directory (change this to your target folder)
+DEST_DIR="/home/gi64/palmer_scratch/RNASeq/raw_data"
+mkdir -p "$DEST_DIR"
+
+# Base path containing the samples
+BASE_PATH="/ycga-gpfs/sequencers/illumina/sequencerY/runs/20261105_LH00813_0175_A23VMWJLT4/Data/Intensities/BaseCalls/Unaligned-1/Project_Db934"
+
+echo "Starting transfer of 32 samples from YCGA GPFS..."
+
+# Loop through Sample_1 to Sample_32
+for i in {1..32}; do
+    SRC="${BASE_PATH}/Sample_${i}"
+    
+    if [ -d "$SRC" ]; then
+        echo "[+] Syncing Sample_${i}..."
+        rsync -avh --progress "$SRC" "$DEST_DIR/"
+    else
+        echo "[!] Warning: $SRC does not exist, skipping."
+    fi
+done
+
+echo "All transfers completed successfully!"
